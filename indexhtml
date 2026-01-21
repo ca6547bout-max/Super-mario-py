@@ -1,0 +1,213 @@
+import pygame
+import sys
+import random
+
+# Inicializar Pygame
+pygame.init()
+
+# Configuraciones básicas
+ANCHO_PANTALLA = 800
+ALTO_PANTALLA = 400
+PANTALLA = pygame.display.set_mode((ANCHO_PANTALLA, ALTO_PANTALLA))
+pygame.display.set_caption("Super Mario Básico")
+
+# Colores
+BLANCO = (255, 255, 255)
+AZUL = (135, 206, 235)
+VERDE = (34, 139, 34)
+MARRON = (139, 69, 19)
+ROJO = (255, 0, 0)
+AMARILLO = (255, 255, 0)
+
+# Reloj para controlar FPS
+reloj = pygame.time.Clock()
+FPS = 60
+
+# Clase para Mario
+class Mario(pygame.sprite.Sprite):
+    def __init__(self):
+        super().__init__()
+        self.ancho = 40
+        self.alto = 60
+        self.image = pygame.Surface((self.ancho, self.alto))
+        self.image.fill(AMARILLO)
+        # Dibujar detalles básicos
+        pygame.draw.rect(self.image, ROJO, (10, 0, 20, 15))  # Gorra
+        pygame.draw.rect(self.image, MARRON, (15, 45, 10, 15))  # Zapato
+        self.rect = self.image.get_rect()
+        self.rect.x = 50
+        self.rect.y = ALTO_PANTALLA - self.alto - 40
+        self.velocidad_x = 5
+        self.velocidad_y = 0
+        self.saltando = False
+        self.gravedad = 0.8
+
+    def update(self):
+        # Movimiento horizontal
+        teclas = pygame.key.get_pressed()
+        if teclas[pygame.K_LEFT] and self.rect.x > 0:
+            self.rect.x -= self.velocidad_x
+        if teclas[pygame.K_RIGHT] and self.rect.x < ANCHO_PANTALLA - self.ancho:
+            self.rect.x += self.velocidad_x
+
+        # Movimiento vertical (salto y gravedad)
+        self.velocidad_y += self.gravedad
+        self.rect.y += self.velocidad_y
+
+        # Evitar que se caiga de la pantalla
+        if self.rect.y >= ALTO_PANTALLA - self.alto - 40:
+            self.rect.y = ALTO_PANTALLA - self.alto - 40
+            self.velocidad_y = 0
+            self.saltando = False
+
+        # Salto
+        if teclas[pygame.K_SPACE] and not self.saltando:
+            self.velocidad_y = -18
+            self.saltando = True
+
+# Clase para Plataformas
+class Plataforma(pygame.sprite.Sprite):
+    def __init__(self, x, y, ancho, alto):
+        super().__init__()
+        self.image = pygame.Surface((ancho, alto))
+        self.image.fill(VERDE)
+        self.rect = self.image.get_rect()
+        self.rect.x = x
+        self.rect.y = y
+
+# Clase para Enemigos (Goombas básicos)
+class Enemigo(pygame.sprite.Sprite):
+    def __init__(self):
+        super().__init__()
+        self.ancho = 30
+        self.alto = 30
+        self.image = pygame.Surface((self.ancho, self.alto))
+        self.image.fill(MARRON)
+        pygame.draw.circle(self.image, ROJO, (15, 5), 5)  # Ojo
+        self.rect = self.image.get_rect()
+        self.rect.x = random.randint(ANCHO_PANTALLA, ANCHO_PANTALLA + 100)
+        self.rect.y = ALTO_PANTALLA - self.alto - 40
+        self.velocidad_x = random.randint(2, 4)
+
+    def update(self):
+        self.rect.x -= self.velocidad_x
+        # Reaparecer si sale de la pantalla
+        if self.rect.x < -self.ancho:
+            self.rect.x = random.randint(ANCHO_PANTALLA, ANCHO_PANTALLA + 200)
+            self.velocidad_x = random.randint(2, 4)
+
+# Clase para Monedas
+class Moneda(pygame.sprite.Sprite):
+    def __init__(self):
+        super().__init__()
+        self.radio = 15
+        self.image = pygame.Surface((self.radio*2, self.radio*2), pygame.SRCALPHA)
+        pygame.draw.circle(self.image, AMARILLO, (self.radio, self.radio), self.radio)
+        self.rect = self.image.get_rect()
+        self.rect.x = random.randint(100, ANCHO_PANTALLA - 100)
+        self.rect.y = random.randint(100, ALTO_PANTALLA - 200)
+        self.velocidad_y = 0.5
+        self.desplazamiento = 0
+
+    def update(self):
+        # Movimiento flotante
+        self.desplazamiento += self.velocidad_y
+        self.rect.y += self.velocidad_y
+        if self.desplazamiento >= 10 or self.desplazamiento <= -10:
+            self.velocidad_y *= -1
+
+# Grupos de sprites
+todos_los_sprites = pygame.sprite.Group()
+plataformas = pygame.sprite.Group()
+enemigos = pygame.sprite.Group()
+monedas = pygame.sprite.Group()
+
+# Crear Mario
+mario = Mario()
+todos_los_sprites.add(mario)
+
+# Crear plataformas
+plataforma_suelo = Plataforma(0, ALTO_PANTALLA - 40, ANCHO_PANTALLA, 40)
+plataforma1 = Plataforma(200, 300, 150, 20)
+plataforma2 = Plataforma(500, 220, 150, 20)
+plataformas.add(plataforma_suelo, plataforma1, plataforma2)
+todos_los_sprites.add(plataforma_suelo, plataforma1, plataforma2)
+
+# Crear enemigos y monedas
+for _ in range(3):
+    enemigo = Enemigo()
+    enemigos.add(enemigo)
+    todos_los_sprites.add(enemigo)
+
+for _ in range(5):
+    moneda = Moneda()
+    monedas.add(moneda)
+    todos_los_sprites.add(moneda)
+
+# Puntaje
+puntaje = 0
+fuente = pygame.font.SysFont(None, 40)
+
+# Bucle principal del juego
+ejecutando = True
+while ejecutando:
+    # Controlar FPS
+    reloj.tick(FPS)
+
+    # Eventos
+    for evento in pygame.event.get():
+        if evento.type == pygame.QUIT:
+            ejecutando = False
+
+    # Actualizar sprites
+    todos_los_sprites.update()
+
+    # Colisiones con plataformas
+    colisiones = pygame.sprite.spritecollide(mario, plataformas, False)
+    for plataforma in colisiones:
+        if mario.velocidad_y > 0 and mario.rect.bottom <= plataforma.rect.top + 10:
+            mario.rect.bottom = plataforma.rect.top
+            mario.velocidad_y = 0
+            mario.saltando = False
+
+    # Colisiones con monedas
+    monedas_colectadas = pygame.sprite.spritecollide(mario, monedas, True)
+    for moneda in monedas_colectadas:
+        puntaje += 10
+        nueva_moneda = Moneda()
+        monedas.add(nueva_moneda)
+        todos_los_sprites.add(nueva_moneda)
+
+    # Colisiones con enemigos
+    colisiones_enemigos = pygame.sprite.spritecollide(mario, enemigos, False)
+    if colisiones_enemigos:
+        if mario.velocidad_y > 0:  # Mario salta sobre el enemigo
+            mario.velocidad_y = -10
+            for enemigo in colisiones_enemigos:
+                enemigo.rect.x = random.randint(ANCHO_PANTALLA, ANCHO_PANTALLA + 200)
+                puntaje += 50
+        else:  # Enemigo toca a Mario
+            puntaje = 0
+
+    # Dibujar en pantalla
+    PANTALLA.fill(AZUL)
+    # Dibujar nubes básicas
+    pygame.draw.circle(PANTALLA, BLANCO, (100, 50), 25)
+    pygame.draw.circle(PANTALLA, BLANCO, (130, 50), 20)
+    pygame.draw.circle(PANTALLA, BLANCO, (115, 35), 22)
+    pygame.draw.circle(PANTALLA, BLANCO, (600, 80), 30)
+    pygame.draw.circle(PANTALLA, BLANCO, (630, 80), 25)
+    pygame.draw.circle(PANTALLA, BLANCO, (615, 65), 27)
+    # Dibujar sprites
+    todos_los_sprites.draw(PANTALLA)
+    # Dibujar puntaje
+    texto_puntaje = fuente.render(f"Puntaje: {puntaje}", True, BLANCO)
+    PANTALLA.blit(texto_puntaje, (10, 10))
+
+    # Actualizar pantalla
+    pygame.display.flip()
+
+# Cerrar juego
+pygame.quit()
+sys.exit()
+                                                    0
